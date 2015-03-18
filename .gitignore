@@ -9,3 +9,6 @@
 
 # RStudio files
 .Rproj.user/
+
+# Dataset folder (will be donwloaded by the analysis)
+dataset/

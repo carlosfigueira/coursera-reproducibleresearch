@@ -1,0 +1,40 @@
+---
+title: "Analysis of impact of weather events in population health and local economy"
+author: "Carlos Figueira"
+date: "Wednesday, March 18, 2015"
+output: 
+  html_document:
+    keep_md: true
+---
+
+The national weather center.
+
+## Data Processing
+
+Initialization: load libraries, download data set if necessary.
+
+```{r echo=TRUE, cache=TRUE}
+# Load required libraries
+library(dplyr)
+library(ggplot2)
+
+# Download dataset if it doesn't exist
+remoteCompressed <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+localCompressed <- "StormData.csv.bz2"
+datasetFolder <- "dataset"
+
+compressedDatasetFile <- paste(datasetFolder, localCompressed, sep = "/")
+
+if (!file.exists(datasetFolder)) {
+  dir.create(datasetFolder)
+}
+
+if (!file.exists(compressedDatasetFile)) {
+  download.file(remoteCompressed, destfile = compressedDatasetFile)
+}
+
+# Load the dataset to memory
+dataset <- read.csv(bzfile(compressedDatasetFile))
+```
+
+## Results
