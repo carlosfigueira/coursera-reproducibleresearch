@@ -12,3 +12,9 @@
 
 # Dataset folder (will be donwloaded by the analysis)
 dataset/
+
+# knitr outputs
+PeerAssignment2_cache/
+PeerAssignment2_files/
+PeerAssignment2.html
+PeerAssignment2.md

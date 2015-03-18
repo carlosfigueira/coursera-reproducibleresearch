@@ -7,7 +7,7 @@ output:
     keep_md: true
 ---
 
-The national weather center.
+The National Weather Service has tracked major storms and weather events over more than 50 years in the United States, creating a catalog of all such events and their consequences to the population around where they occurred. In this project we'll analyze their National Oceanic and Atmospheric Administration's (NOAA) storm database, and their impact in the health of the population and economy of affected areas. 
 
 ## Data Processing
 
@@ -19,7 +19,7 @@ library(dplyr)
 library(ggplot2)
 
 # Download dataset if it doesn't exist
-remoteCompressed <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+remoteCompressed <- "http://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
 localCompressed <- "StormData.csv.bz2"
 datasetFolder <- "dataset"
 
@@ -30,7 +30,7 @@ if (!file.exists(datasetFolder)) {
 }
 
 if (!file.exists(compressedDatasetFile)) {
-  download.file(remoteCompressed, destfile = compressedDatasetFile)
+    download.file(remoteCompressed, destfile = compressedDatasetFile, mode = "wb", method = "auto")
 }
 
 # Load the dataset to memory
