@@ -1,7 +1,7 @@
 ---
 title: "Analysis of impact of weather events in population health and local economy"
 author: "Carlos Figueira"
-date: "Wednesday, March 18, 2015"
+date: "Friday, March 20, 2015"
 output: 
   html_document:
     keep_md: true
@@ -13,10 +13,13 @@ The National Weather Service has tracked major storms and weather events over mo
 
 Before we begin processing data, let's load the dataset, downloading it from the source if it hasn't already been downloaded. At this point we'll also load the libraries that we'll use throughout this document.
 
-```{r echo=FALSE}
+```{r echo=TRUE}
 # Load required libraries
 library(dplyr)
 library(ggplot2)
+
+# Display environment information
+sessionInfo()
 ```
 
 ```{r echo=TRUE, cache=TRUE}
