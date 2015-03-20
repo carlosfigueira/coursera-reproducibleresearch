@@ -7,11 +7,13 @@ output:
     keep_md: true
 ---
 
-The National Weather Service has tracked major storms and weather events over more than 50 years in the United States, creating a catalog of all such events and their consequences to the population around where they occurred. In this project we'll analyze their National Oceanic and Atmospheric Administration's (NOAA) storm database, and their impact in the health of the population and economy of affected areas. 
+The National Weather Service has tracked major storms and weather events over more than 50 years in the United States, creating a catalog of all such events and their consequences to the population around where they occurred. In this project we'll analyze the National Oceanic and Atmospheric Administration's (NOAA) [Storm Events Database](http://www.ncdc.noaa.gov/stormevents/details.jsp), and their impact in the health of the population and economy of affected areas. The database for this analysis was obtained from [the address in the Coursera Reproducible Research class page](http://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2) instead of the NOAA directly.
+
+Notice that the event database only contains data for tornado, thunderstorm and hail events until 1996 (based on the [event database description](http://www.ncdc.noaa.gov/stormevents/details.jsp?type=eventtype)), so we'll split our analysis in two parts (before 1996, after 1996) to account for the distribution of event types.
 
 ## Data Processing
 
-Initialization: load libraries, download data set if necessary.
+Before we begin processing data, let's load the dataset, downloading it from the source if it hasn't already been downloaded. At this point we'll also load the libraries that we'll use throughout this document.
 
 ```{r echo=TRUE, cache=TRUE}
 # Load required libraries
@@ -35,6 +37,46 @@ if (!file.exists(compressedDatasetFile)) {
 
 # Load the dataset to memory
 dataset <- read.csv(bzfile(compressedDatasetFile))
+```
+
+Having the data loaded, we'll need to clean it up a little, by removing the variables that we don't need for this analysis. We'll also to tidy up the data, merging the crop/property damage value and exponent into a single column.
+
+```{r echo=TRUE}
+stormData <- select(dataset, EVTYPE, FATALITIES, INJURIES, PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP, BGN_DATE)
+rm(dataset) # Remove dataset from memory, not needed
+
+# Extract year from the date
+eventYears <- sapply(
+  strsplit(
+    as.character(stormData$BGN_DATE),
+    "[\\/ ]"),
+  function(x) { as.integer(x[3]) })
+stormData$year = eventYears
+stormData$BGN_DATE <- NULL
+
+# Normalize property / crop damages
+normalizeValue <- function(base, exp) {
+  if (exp == "" || exp == "-" || exp == "?" || exp == "+") {
+    exponent <- 0
+  } else if (exp == "h" || exp == "H") {
+    exponent <- 2
+  } else if (exp == "k" || exp == "K") {
+    exponent <- 3
+  } else if (exp == "m" || exp == "M") {
+    exponent <- 6
+  } else if (exp == "b" || exp == "B") {
+    exponent <- 9
+  } else {
+    exponent <- as.numeric(exp)
+  }
+  
+  base * 10 ^ exponent
+}
+
+tidyStormData <-
+  stormData %>%
+  mutate(propertyDamage = normalizeValue(PROPDMG, PROPDMGEXP), cropDamage = normalizeValue(CROPDMG, CROPDMGEXP)) %>%
+  select(year, evtType = EVTYPE, fatalities = FATALITIES, injuries = INJURIES, propertyDamage, cropDamage)
 ```
 
 ## Results
