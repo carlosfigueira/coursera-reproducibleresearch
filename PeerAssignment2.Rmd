@@ -9,8 +9,6 @@ output:
 
 The National Weather Service has tracked major storms and weather events over more than 50 years in the United States, creating a catalog of all such events and their consequences to the population around where they occurred. In this project we'll analyze the National Oceanic and Atmospheric Administration's (NOAA) [Storm Events Database](http://www.ncdc.noaa.gov/stormevents/details.jsp), and their impact in the health of the population and economy of affected areas. The database for this analysis was obtained from [the address in the Coursera Reproducible Research class page](http://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2) instead of the NOAA directly.
 
-Notice that the event database only contains data for tornado, thunderstorm and hail events until 1996 (based on the [event database description](http://www.ncdc.noaa.gov/stormevents/details.jsp?type=eventtype)), so we'll split our analysis in two parts (before 1996, after 1996) to account for the distribution of event types.
-
 ## Data Processing
 
 Before we begin processing data, let's load the dataset, downloading it from the source if it hasn't already been downloaded. At this point we'll also load the libraries that we'll use throughout this document.
@@ -225,9 +223,6 @@ ggplot(economicImpactForPlot, aes(x = evtGroup, y = value, fill = impactType)) +
 
 ## Results
 
-From the numbers and plots above, we can see that the tornado / hail events are the ones that have caused the larges number of injuries / fatalities. However, on a per-case basis, dense fog and extreme heat events have a larger impact on the population health, with 
+From the numbers and plots above, we can see that the tornado / hail events are the ones that have caused the larges number of injuries / fatalities. However, on a per-case basis, dense fog and extreme heat events have a larger impact on the population health, with the larger number of fatalities happening on extreme heat events.
 
-## Documents:
-
-- Summary of events (with grouping): http://www.ncdc.noaa.gov/oa/climate/sd/annsum2009.pdf
-- Description: http://www.ncdc.noaa.gov/stormevents/pd01016005curr.pdf
+The economic impact of the various event types is different. Looking at this side, floods and storms are the types of events that have caused the largest economic impact, with over 330 billions USD worth of property damages and over 20 billion USD of crop damages.over the years. On a per-case basis, the worst type of recorded events are summer / heat (such as droughts) that cause in average close to 9 million USD worth of damages, most of it in crop damages.
