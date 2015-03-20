@@ -15,11 +15,13 @@ Notice that the event database only contains data for tornado, thunderstorm and 
 
 Before we begin processing data, let's load the dataset, downloading it from the source if it hasn't already been downloaded. At this point we'll also load the libraries that we'll use throughout this document.
 
-```{r echo=TRUE, cache=TRUE}
+```{r echo=FALSE}
 # Load required libraries
 library(dplyr)
 library(ggplot2)
+```
 
+```{r echo=TRUE, cache=TRUE}
 # Download dataset if it doesn't exist
 remoteCompressed <- "http://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
 localCompressed <- "StormData.csv.bz2"
@@ -41,7 +43,7 @@ dataset <- read.csv(bzfile(compressedDatasetFile))
 
 Having the data loaded, we'll need to clean it up a little, by removing the variables that we don't need for this analysis. We'll also to tidy up the data, merging the crop/property damage value and exponent into a single column.
 
-```{r echo=TRUE}
+```{r echo=TRUE, cache=TRUE}
 stormData <- select(dataset, EVTYPE, FATALITIES, INJURIES, PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP, BGN_DATE)
 rm(dataset) # Remove dataset from memory, not needed
 
@@ -54,29 +56,178 @@ eventYears <- sapply(
 stormData$year = eventYears
 stormData$BGN_DATE <- NULL
 
-# Normalize property / crop damages
+# Normalize property / crop damages to millions of dollars
 normalizeValue <- function(base, exp) {
-  if (exp == "" || exp == "-" || exp == "?" || exp == "+") {
-    exponent <- 0
-  } else if (exp == "h" || exp == "H") {
-    exponent <- 2
-  } else if (exp == "k" || exp == "K") {
-    exponent <- 3
-  } else if (exp == "m" || exp == "M") {
-    exponent <- 6
-  } else if (exp == "b" || exp == "B") {
-    exponent <- 9
-  } else {
-    exponent <- as.numeric(exp)
-  }
-  
-  base * 10 ^ exponent
+  exp <- tolower(as.character(exp))
+  exp <- sapply(tolower(as.character(exp)), function(exp) {
+    if (length(grep("\\d", exp)) > 0) {
+        exponent <- as.numeric(exp)
+    } else if (exp == "h") { # hundreds
+        exponent <- 2
+    } else if (exp == "k") { # thousands
+        exponent <- 3
+    } else if (exp == "m") { # millions
+        exponent <- 6
+    } else if (exp == "b") { # billions
+        exponent <- 9
+    } else {
+        exponent <- 0
+    }
+    exponent
+  })
+  base * 10 ^ (exp - 6)
 }
 
+# Clean up the data, and filter only those that have an impact in the variables
+# that we want to analyze (i.e., remove those events that did not cause any
+# fatalities, injuries or economic damages)
 tidyStormData <-
   stormData %>%
-  mutate(propertyDamage = normalizeValue(PROPDMG, PROPDMGEXP), cropDamage = normalizeValue(CROPDMG, CROPDMGEXP)) %>%
-  select(year, evtType = EVTYPE, fatalities = FATALITIES, injuries = INJURIES, propertyDamage, cropDamage)
+  filter(FATALITIES > 0 | INJURIES > 0 | CROPDMG > 0 | PROPDMG > 0) %>%
+  mutate(evtType = tolower(as.character(EVTYPE)), propertyDamage = normalizeValue(PROPDMG, PROPDMGEXP), cropDamage = normalizeValue(CROPDMG, CROPDMGEXP)) %>%
+  select(year, evtType, fatalities = FATALITIES, injuries = INJURIES, propertyDamage, cropDamage)
+```
+
+To continue cleaning up the data, we'll look at the event type. As we can see below, there are too many event types, and many of them represent the same type (such as "winter weather mix" and "winter weather/mix").
+
+```{r echo=TRUE}
+length(table(tidyStormData$evtType))
+```
+
+Let's normalize them into some groups to better capture their effect that we want to analyze.
+
+```{r echo=TRUE}
+assignGroup <- function(groupName, options) {
+    regex <- paste(options, collapse = ")|(")
+    regex <- paste0("(", regex, ")")
+    tidyStormData[grep(regex, tidyStormData$evtType), "evtGroup"] <<- groupName
+}
+
+# Create groups of events based on their types:
+tidyStormData$evtGroup <- "others"
+assignGroup("rain / storms",
+            c("thunderstorm", "tstm wind", "lightning", "(strong)|(high) wind",
+              "tropical storm", "heavy rain", "hurricane", "waterspout", "storm surge",
+              "landslide", "high surf", "heavy surf", "tsunami", "wind", "typhoon",
+              "excessive rainfall", "excessive wetness", "mixed precip"))
+assignGroup("tornado / hail",
+            c("tornado", "hail", "funnel", "sleet"))
+assignGroup("flood",
+            c("flood", "stream fld", "rip current"))
+assignGroup("winter",
+            c("snow", "blizzard", "avalanche", "winter", "ice", "freez", "cold",
+              "ice", "frost", "icy", "windchill", "hypothermia", "wintry", "glaze",
+              "unusual cool"))
+assignGroup("summer / heat",
+            c("fire", "heat", "drought", "dust storm", "dust devil",
+              "dry microburst", "hyperhermia", "unseasonably warm",
+              "record warmth", "unseasonably ((dry)|(hot))", "unusual warm"))
+assignGroup("fog", c("fog", "smoke"))
+```
+
+We're still left with some events without a categorization, but their number and the impact is minimal for this analysis.
+
+```{r echo=TRUE}
+table(tidyStormData$evtGroup)
+```
+
+Now we can try to understand the impact of those event types in the local economy / population health. Let's start with harm to the population health. We'll include both injuries and fatalities related to the events, summarizing the data set to aggregate the total number of injuries / fatalities caused by them. Also, since some groups have a lot more events than others (there are a lot more storms), we'll also look at the impact caused by an average event.
+
+```{r echo=TRUE, fig.width=9}
+healthImpact <- tidyStormData %>%
+    group_by(evtGroup) %>%
+    summarise(count = n(),
+              avgInjuries = mean(injuries),
+              avgFatalities = mean(fatalities),
+              injuries = sum(injuries),
+              fatalities = sum(fatalities))
+print(healthImpact)
+
+# Mutate the data to make it more amenable to ggplot
+healthImpactForPlot <- rbind(
+    tidyStormData %>%
+        group_by(evtGroup) %>%
+        summarise(eventsPerGroup = n(),
+                  impactType = "injuries",
+                  aggregation = "total",
+                  value = sum(injuries)),
+    tidyStormData %>%
+        group_by(evtGroup) %>%
+        summarise(eventsPerGroup = n(),
+                  impactType = "injuries",
+                  aggregation = "average",
+                  value = mean(injuries)),
+    tidyStormData %>%
+        group_by(evtGroup) %>%
+        summarise(eventsPerGroup = n(),
+                  impactType = "fatalities",
+                  aggregation = "total",
+                  value = sum(fatalities)),
+    tidyStormData %>%
+        group_by(evtGroup) %>%
+        summarise(eventsPerGroup = n(),
+                  impactType = "fatalities",
+                  aggregation = "average",
+                  value = mean(fatalities)))
+
+ggplot(healthImpactForPlot, aes(x = evtGroup, y = value, fill = impactType)) +
+    geom_bar(stat = "identity") +
+    facet_grid(aggregation ~ ., scales = "free") +
+    xlab("Type of event") +
+    ylab("Population health impact (number of occurrences)")
+```
+
+Now for the impact in the local economy. The analysis is similar to the one above, with respect to property and crop damages:
+
+```{r echo=TRUE, fig.width=9}
+economicImpact <- tidyStormData %>%
+    group_by(evtGroup) %>%
+    summarise(count = n(),
+              property = sum(propertyDamage),
+              avgProperty = mean(propertyDamage),
+              crop = sum(cropDamage),
+              avgCrop = mean(cropDamage))
+print(economicImpact)
+
+# Mutate the data to make it more amenable to ggplot
+economicImpactForPlot <- rbind(
+    tidyStormData %>%
+        group_by(evtGroup) %>%
+        summarise(eventsPerGroup = n(),
+                  impactType = "property",
+                  aggregation = "total",
+                  value = sum(propertyDamage)),
+    tidyStormData %>%
+        group_by(evtGroup) %>%
+        summarise(eventsPerGroup = n(),
+                  impactType = "property",
+                  aggregation = "average",
+                  value = mean(propertyDamage)),
+    tidyStormData %>%
+        group_by(evtGroup) %>%
+        summarise(eventsPerGroup = n(),
+                  impactType = "crop",
+                  aggregation = "total",
+                  value = sum(cropDamage)),
+    tidyStormData %>%
+        group_by(evtGroup) %>%
+        summarise(eventsPerGroup = n(),
+                  impactType = "crop",
+                  aggregation = "average",
+                  value = mean(cropDamage)))
+
+ggplot(economicImpactForPlot, aes(x = evtGroup, y = value, fill = impactType)) +
+    geom_bar(stat = "identity") +
+    facet_grid(aggregation ~ ., scales = "free") +
+    xlab("Type of event") +
+    ylab("Economic impact (millions of dollars)")
 ```
 
 ## Results
+
+From the numbers and plots above, we can see that the tornado / hail events are the ones that have caused the larges number of injuries / fatalities. However, on a per-case basis, dense fog and extreme heat events have a larger impact on the population health, with 
+
+## Documents:
+
+- Summary of events (with grouping): http://www.ncdc.noaa.gov/oa/climate/sd/annsum2009.pdf
+- Description: http://www.ncdc.noaa.gov/stormevents/pd01016005curr.pdf
