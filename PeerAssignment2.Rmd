@@ -16,6 +16,7 @@ Before we begin processing data, let's load the dataset, downloading it from the
 ```{r echo=TRUE}
 # Load required libraries
 library(dplyr)
+library(tidyr)
 library(ggplot2)
 
 # Display environment information
@@ -145,37 +146,26 @@ healthImpact <- tidyStormData %>%
 print(healthImpact)
 
 # Mutate the data to make it more amenable to ggplot
-healthImpactForPlot <- rbind(
-    tidyStormData %>%
-        group_by(evtGroup) %>%
-        summarise(eventsPerGroup = n(),
-                  impactType = "injuries",
-                  aggregation = "total",
-                  value = sum(injuries)),
-    tidyStormData %>%
-        group_by(evtGroup) %>%
-        summarise(eventsPerGroup = n(),
-                  impactType = "injuries",
-                  aggregation = "average",
-                  value = mean(injuries)),
-    tidyStormData %>%
-        group_by(evtGroup) %>%
-        summarise(eventsPerGroup = n(),
-                  impactType = "fatalities",
-                  aggregation = "total",
-                  value = sum(fatalities)),
-    tidyStormData %>%
-        group_by(evtGroup) %>%
-        summarise(eventsPerGroup = n(),
-                  impactType = "fatalities",
-                  aggregation = "average",
-                  value = mean(fatalities)))
+gatherTotalsAndAverages <- function(dataFrame) {
+  expanded <- gather(dataFrame, type, value, -evtGroup, -count)
+  expanded$type = as.character(expanded$type)
+  expanded$aggregation <- ifelse(grepl("^avg", expanded$type), "average", "total")
+  expanded$impactType <- ifelse(grepl("^avg", expanded$type),
+                                paste0(tolower(substr(expanded$type, 4, 4)),
+                                       substr(expanded$type, 5, nchar(expanded$type))),
+                                expanded$type)
+  expanded$type <- NULL
+  expanded
+}
+
+healthImpactForPlot <- gatherTotalsAndAverages(healthImpact)
 
 ggplot(healthImpactForPlot, aes(x = evtGroup, y = value, fill = impactType)) +
     geom_bar(stat = "identity") +
     facet_grid(aggregation ~ ., scales = "free") +
     xlab("Type of event") +
-    ylab("Population health impact (number of occurrences)")
+    ylab("Population health impact (number of occurrences)") +
+    ggtitle("Impact of weather events in the population health")
 ```
 
 Now for the impact in the local economy. The analysis is similar to the one above, with respect to property and crop damages:
@@ -191,37 +181,14 @@ economicImpact <- tidyStormData %>%
 print(economicImpact)
 
 # Mutate the data to make it more amenable to ggplot
-economicImpactForPlot <- rbind(
-    tidyStormData %>%
-        group_by(evtGroup) %>%
-        summarise(eventsPerGroup = n(),
-                  impactType = "property",
-                  aggregation = "total",
-                  value = sum(propertyDamage)),
-    tidyStormData %>%
-        group_by(evtGroup) %>%
-        summarise(eventsPerGroup = n(),
-                  impactType = "property",
-                  aggregation = "average",
-                  value = mean(propertyDamage)),
-    tidyStormData %>%
-        group_by(evtGroup) %>%
-        summarise(eventsPerGroup = n(),
-                  impactType = "crop",
-                  aggregation = "total",
-                  value = sum(cropDamage)),
-    tidyStormData %>%
-        group_by(evtGroup) %>%
-        summarise(eventsPerGroup = n(),
-                  impactType = "crop",
-                  aggregation = "average",
-                  value = mean(cropDamage)))
+economicImpactForPlot <-  gatherTotalsAndAverages(economicImpact)
 
 ggplot(economicImpactForPlot, aes(x = evtGroup, y = value, fill = impactType)) +
     geom_bar(stat = "identity") +
     facet_grid(aggregation ~ ., scales = "free") +
     xlab("Type of event") +
-    ylab("Economic impact (millions of dollars)")
+    ylab("Economic impact (millions of dollars)") +
+    ggtitle("Impact of weather events in the economy")
 ```
 
 ## Results
